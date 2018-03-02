@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFramework>netstandard1.3</TargetFramework>
+    <TargetFrameworks>netstandard1.3;net45</TargetFrameworks>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageLicenseUrl>https://github.com/IgorMilavec/TPLink-SmartHome/blob/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/IgorMilavec/TPLink-SmartHome</PackageProjectUrl>
@@ -17,6 +17,7 @@
     <Authors>Igor Milavec</Authors>
     <Product>TPLink.SmartHome</Product>
     <Company></Company>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

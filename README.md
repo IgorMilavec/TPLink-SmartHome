@@ -1,8 +1,8 @@
 # TP-Link Smart Home Library for .NET
 
-This library provides the client for TP-Link Smart Home devices. The TP-Link Smart Home protocol is proprietary; this code is based on the article [Reverse Engineering the TP-Link HS110](https://www.softscheck.com/en/reverse-engineering-tp-link-hs110/) and controbutors' own experiments.
+This library provides the client for TP-Link Smart Home devices. The TP-Link Smart Home protocol is proprietary; this code is based on the article [Reverse Engineering the TP-Link HS110](https://www.softscheck.com/en/reverse-engineering-tp-link-hs110/) and contributors' own experiments.
 
-The library is built for .NET Standard 1.3.
+The library is built for .NET Standard 1.3 and .Net Framework 4.5.
 
 ## Supported devices
  * Smart Plugs
