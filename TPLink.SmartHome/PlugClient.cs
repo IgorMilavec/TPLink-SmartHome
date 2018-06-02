@@ -26,11 +26,20 @@ namespace TPLink.SmartHome
                 new JProperty("state", (int)state));
         }
 
+        public void SetOutput(OutputState state)
+        {
+            this.SetOutputAsync(state).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
         public async Task<OutputState> GetOutputAsync()
         {
-            JToken resultToken = await this.ExecuteAsync("system", "get_sysinfo");
+            JToken resultToken = await this.ExecuteAsync("system", "get_sysinfo").ConfigureAwait(false);
             return (OutputState)resultToken.SelectToken("relay_state").Value<int>();
         }
-    }
 
+        public OutputState GetOutput()
+        {
+            return this.GetOutputAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+    }
 }

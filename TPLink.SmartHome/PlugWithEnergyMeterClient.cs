@@ -22,10 +22,15 @@ namespace TPLink.SmartHome
 
         public async Task<CalibrationInfo> GetCalibrationAsync()
         {
-            JToken resultToken = await this.ExecuteAsync("emeter", "get_vgain_igain");
+            JToken resultToken = await this.ExecuteAsync("emeter", "get_vgain_igain").ConfigureAwait(false);
             return new CalibrationInfo(
                 resultToken.SelectToken("vgain").Value<int>(),
                 resultToken.SelectToken("igain").Value<int>());
+        }
+
+        public CalibrationInfo GetCalibration()
+        {
+            return this.GetCalibrationAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public Task SetCalibrationAsync(CalibrationInfo calibrationInfo)
@@ -35,13 +40,23 @@ namespace TPLink.SmartHome
                 new JProperty("igain", calibrationInfo.CurrentGain));
         }
 
+        public void SetCalibration(CalibrationInfo calibrationInfo)
+        {
+            this.SetCalibrationAsync(calibrationInfo).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
         public async Task<ConsumptionInfo> GetConsumptionAsync()
         {
-            JToken resultToken = await this.ExecuteAsync("emeter", "get_realtime");
+            JToken resultToken = await this.ExecuteAsync("emeter", "get_realtime").ConfigureAwait(false);
             return new ConsumptionInfo(
                 resultToken.SelectToken("power").Value<decimal>(),
                 resultToken.SelectToken("voltage").Value<decimal>(),
                 resultToken.SelectToken("current").Value<decimal>());
+        }
+
+        public ConsumptionInfo GetConsumption()
+        {
+            return this.GetConsumptionAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
     }
 }

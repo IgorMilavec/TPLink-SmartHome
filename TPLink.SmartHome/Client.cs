@@ -153,7 +153,7 @@ namespace TPLink.SmartHome
             );
 
             return ParseResponse(
-                await this.ExecuteAutoAsync(request.ToString(Formatting.None)),
+                await this.ExecuteAutoAsync(request.ToString(Formatting.None)).ConfigureAwait(false),
                 @object + "." + member);
         }
 
@@ -187,17 +187,17 @@ namespace TPLink.SmartHome
             using (TcpClient tcpClient = new TcpClient())
             {
                 tcpClient.NoDelay = true;
-                await tcpClient.ConnectAsync(this.hostname, RemotePort);
+                await tcpClient.ConnectAsync(this.hostname, RemotePort).ConfigureAwait(false);
                 using (NetworkStream tcpStream = tcpClient.GetStream())
                 {
                     // Write encrypted request
                     byte[] requestMessage = new byte[4 + command.Length];
                     Client.EncodeMessage(command, new ArraySegment<byte>(requestMessage, 0, 4), new ArraySegment<byte>(requestMessage, 4, command.Length));
-                    await tcpStream.WriteAsync(requestMessage, 0, requestMessage.Length);
+                    await tcpStream.WriteAsync(requestMessage, 0, requestMessage.Length).ConfigureAwait(false);
 
                     // Read response header
                     byte[] responseMessageHeader = new byte[4];
-                    if (await tcpStream.ReadBlockAsync(responseMessageHeader, 0, 4) < 4)
+                    if (await tcpStream.ReadBlockAsync(responseMessageHeader, 0, 4).ConfigureAwait(false) < 4)
                     {
                         throw new Exception("The stream was closed by remote party");
                     }
@@ -205,7 +205,7 @@ namespace TPLink.SmartHome
                     // Read response body
                     int responseMessageBodyLength = (responseMessageHeader[0] << 24) + (responseMessageHeader[1] << 16) + (responseMessageHeader[2] << 8) + responseMessageHeader[3];
                     byte[] responseMessageBody = new byte[responseMessageBodyLength];
-                    if (await tcpStream.ReadBlockAsync(responseMessageBody, 0, responseMessageBodyLength) < responseMessageBodyLength)
+                    if (await tcpStream.ReadBlockAsync(responseMessageBody, 0, responseMessageBodyLength).ConfigureAwait(false) < responseMessageBodyLength)
                     {
                         throw new Exception("The stream was closed by remote party");
                     }
@@ -223,19 +223,19 @@ namespace TPLink.SmartHome
                 // Send the request
                 byte[] requestMessage = new byte[command.Length];
                 Client.EncodeMessage(command, null, requestMessage);
-                await udpClient.SendAsync(requestMessage, requestMessage.Length, this.hostname, RemotePort);
+                await udpClient.SendAsync(requestMessage, requestMessage.Length, this.hostname, RemotePort).ConfigureAwait(false);
 
                 // Wait for the response
                 Task<UdpReceiveResult> udpReceiveResultTask = udpClient.ReceiveAsync();
-                await Task.WhenAny(udpReceiveResultTask, Task.Delay(ReceiveTimeout));
+                await Task.WhenAny(udpReceiveResultTask, Task.Delay(ReceiveTimeout)).ConfigureAwait(false);
                 if (udpReceiveResultTask.IsCompleted)
                 {
                     return DecodeMessage(null, udpReceiveResultTask.Result.Buffer);
                 }
 
                 // Resend and wait for the response
-                await udpClient.SendAsync(requestMessage, requestMessage.Length, this.hostname, RemotePort);
-                await Task.WhenAny(udpReceiveResultTask, Task.Delay(ReceiveTimeout));
+                await udpClient.SendAsync(requestMessage, requestMessage.Length, this.hostname, RemotePort).ConfigureAwait(false);
+                await Task.WhenAny(udpReceiveResultTask, Task.Delay(ReceiveTimeout)).ConfigureAwait(false);
                 if (udpReceiveResultTask.IsCompleted)
                 {
                     return DecodeMessage(null, udpReceiveResultTask.Result.Buffer);
@@ -247,7 +247,12 @@ namespace TPLink.SmartHome
 
         public virtual async Task<SystemInfo> GetSystemInfoAsync()
         {
-            return ParseSystemInformation(await this.ExecuteAsync("system", "get_sysinfo"));
+            return ParseSystemInformation(await this.ExecuteAsync("system", "get_sysinfo").ConfigureAwait(false));
+        }
+
+        public SystemInfo GetSystemInfo()
+        {
+            return this.GetSystemInfoAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public Task SetNameAsync(string name)
@@ -256,10 +261,15 @@ namespace TPLink.SmartHome
                 new JProperty("alias", name));
         }
 
+        public void SetName(string name)
+        {
+            this.SetNameAsync(name).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
         public async Task SetWirelessCredentialsAsync(string ssid, string password)
         {
             int keyType = -1;
-            JToken resultToken = await this.ExecuteAsync("netif", "get_scaninfo", new JProperty("refresh", 1));
+            JToken resultToken = await this.ExecuteAsync("netif", "get_scaninfo", new JProperty("refresh", 1)).ConfigureAwait(false);
             foreach (JToken wirelessInfo in resultToken.SelectTokens("ap_list[*]"))
             {
                 if (string.Compare(wirelessInfo.SelectToken("ssid").Value<string>(), ssid, StringComparison.OrdinalIgnoreCase) == 0)
@@ -278,13 +288,18 @@ namespace TPLink.SmartHome
             resultToken = await this.ExecuteAsync("netif", "set_stainfo",
                 new JProperty("ssid", ssid),
                 new JProperty("password", password),
-                new JProperty("key_type", keyType));
+                new JProperty("key_type", keyType)).ConfigureAwait(false);
+        }
+
+        public void SetWirelessCredentials(string ssid, string password)
+        {
+            this.SetWirelessCredentialsAsync(ssid, password).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public async Task FlashFirmwareAsync(Uri firmwareLocation)
         {
             // Check system status
-            JToken resultToken = await this.ExecuteAsync("system", "get_sysinfo");
+            JToken resultToken = await this.ExecuteAsync("system", "get_sysinfo").ConfigureAwait(false);
             if (resultToken.SelectToken("updating").Value<int>() != 0)
             {
                 throw new InvalidOperationException("The device is already updating.");
@@ -292,14 +307,14 @@ namespace TPLink.SmartHome
 
             // Instruct the device to download the firmware
             await this.ExecuteAsync("system", "download_firmware",
-                new JProperty("url", firmwareLocation.ToString()));
+                new JProperty("url", firmwareLocation.ToString())).ConfigureAwait(false);
 
             // Wait for the device to download the firmware
             while (true)
             {
-                await Task.Delay(1000);
+                await Task.Delay(1000).ConfigureAwait(false);
 
-                resultToken = await this.ExecuteAsync("system", "get_download_state");
+                resultToken = await this.ExecuteAsync("system", "get_download_state").ConfigureAwait(false);
                 if (resultToken.SelectToken("ratio").Value<int>() == 100)
                 {
                     break;
@@ -307,7 +322,12 @@ namespace TPLink.SmartHome
             }
 
             // Flash the new firmware
-            await this.ExecuteAsync("system", "flash_firmware");
+            await this.ExecuteAsync("system", "flash_firmware").ConfigureAwait(false);
+        }
+
+        public void FlashFirmware(Uri firmwareLocation)
+        {
+            this.FlashFirmwareAsync(firmwareLocation).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public Task RebootAsync()
@@ -316,18 +336,22 @@ namespace TPLink.SmartHome
                 new JProperty("delay", 1));
         }
 
+        public void Reboot()
+        {
+            this.RebootAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
         public async Task<DateTimeOffset> GetTimeAsync()
         {
-            JToken resultToken = await this.ExecuteAsync("time", "get_timezone");
+            JToken resultToken = await this.ExecuteAsync("time", "get_timezone").ConfigureAwait(false);
             int index = resultToken.SelectToken("index").Value<int>();
-            TimeZoneInfo timeZoneInfo;
-            if (!TZDictionary.TryGetValue(index, out timeZoneInfo))
+            if (!TZDictionary.TryGetValue(index, out TimeZoneInfo timeZoneInfo))
             {
                 timeZoneInfo = TimeZoneInformationExtensions.FromPOSIXString(resultToken.SelectToken("tz_str").Value<string>());
                 TZDictionary.Add(index, timeZoneInfo);
             }
 
-            resultToken = await this.ExecuteAsync("time", "get_time");
+            resultToken = await this.ExecuteAsync("time", "get_time").ConfigureAwait(false);
             DateTime dateTime = new DateTime(
                 resultToken.SelectToken("year").Value<int>(), resultToken.SelectToken("month").Value<int>(), resultToken.SelectToken("mday").Value<int>(),
                 resultToken.SelectToken("hour").Value<int>(), resultToken.SelectToken("min").Value<int>(), resultToken.SelectToken("sec").Value<int>());
@@ -337,6 +361,11 @@ namespace TPLink.SmartHome
                 timeZoneInfo.GetUtcOffset(dateTime));
         }
 
+        public DateTimeOffset GetTime()
+        {
+            return this.GetTimeAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
         public async Task SetTimeAsync(DateTime time)
         {
             if ((time.Kind != DateTimeKind.Utc) && (time.Kind != DateTimeKind.Local))
@@ -344,10 +373,9 @@ namespace TPLink.SmartHome
                 throw new ArgumentException("DateTime.Kind must be either Utc or Local.", nameof(time));
             }
 
-            JToken resultToken = await this.ExecuteAsync("time", "get_timezone");
+            JToken resultToken = await this.ExecuteAsync("time", "get_timezone").ConfigureAwait(false);
             int index = resultToken.SelectToken("index").Value<int>();
-            TimeZoneInfo timeZoneInfo;
-            if (!TZDictionary.TryGetValue(index, out timeZoneInfo))
+            if (!TZDictionary.TryGetValue(index, out TimeZoneInfo timeZoneInfo))
             {
                 timeZoneInfo = TimeZoneInformationExtensions.FromPOSIXString(resultToken.SelectToken("tz_str").Value<string>());
                 TZDictionary.Add(index, timeZoneInfo);
@@ -363,60 +391,74 @@ namespace TPLink.SmartHome
                 new JProperty("hour", time.Hour),
                 new JProperty("min", time.Minute),
                 new JProperty("sec", time.Second),
-                new JProperty("index", index));
+                new JProperty("index", index)).ConfigureAwait(false);
+        }
+
+        public void SetTime(DateTime time)
+        {
+            this.SetTimeAsync(time).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public async Task<CloudInfo> GetCloudInfoAsync()
         {
-            JToken resultToken = await this.ExecuteAsync("cnCloud", "get_info");
+            JToken resultToken = await this.ExecuteAsync("cnCloud", "get_info").ConfigureAwait(false);
             return new CloudInfo(
                 resultToken.SelectToken("binded").Value<int>() == 1 ? resultToken.SelectToken("username").Value<string>() : null
             );
+        }
+
+        public CloudInfo GetCloudInfo()
+        {
+            return this.GetCloudInfoAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public async Task SetCloudCredentialsAsync(string username, string password)
         {
             await this.ExecuteAsync("cnCloud", "bind",
                 new JProperty("username", username),
-                new JProperty("password", password));
+                new JProperty("password", password)).ConfigureAwait(false);
         }
 
-        public static Task Discover(Action<IPAddress, SystemInfo> onDeviceFound)
+        public void SetCloudCredentials(string username, string password)
         {
-            return Discover(new IPAddress[] { IPAddress.Broadcast }, onDeviceFound, DiscoveryTimeout);
+            this.SetCloudCredentialsAsync(username, password).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        public static Task Discover(Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
+        public static Task DiscoverAsync(Action<IPAddress, SystemInfo> onDeviceFound)
         {
-            return Discover(new IPAddress[] { IPAddress.Broadcast }, onDeviceFound, timeout);
+            return DiscoverAsync(new IPAddress[] { IPAddress.Broadcast }, onDeviceFound, DiscoveryTimeout);
         }
 
-        public static Task Discover(IPNetwork networkAddress, Action<IPAddress, SystemInfo> onDeviceFound)
+        public static Task DiscoverAsync(Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
         {
-            return Discover(new IPAddress[] { networkAddress.BroadcastAddress }, onDeviceFound, DiscoveryTimeout);
+            return DiscoverAsync(new IPAddress[] { IPAddress.Broadcast }, onDeviceFound, timeout);
         }
 
-        public static Task Discover(IPNetwork networkAddress, Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
+        public static Task DiscoverAsync(IPNetwork networkAddress, Action<IPAddress, SystemInfo> onDeviceFound)
         {
-            return Discover(new IPAddress[] { networkAddress.BroadcastAddress }, onDeviceFound, timeout);
+            return DiscoverAsync(new IPAddress[] { networkAddress.BroadcastAddress }, onDeviceFound, DiscoveryTimeout);
         }
 
-        public static Task Discover(IEnumerable<IPNetwork> networkAddressList, Action<IPAddress, SystemInfo> onDeviceFound)
+        public static Task DiscoverAsync(IPNetwork networkAddress, Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
         {
-            return Discover(networkAddressList.Select(network => network.BroadcastAddress), onDeviceFound, DiscoveryTimeout);
+            return DiscoverAsync(new IPAddress[] { networkAddress.BroadcastAddress }, onDeviceFound, timeout);
         }
 
-        public static Task Discover(IEnumerable<IPNetwork> networkAddressList, Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
+        public static Task DiscoverAsync(IEnumerable<IPNetwork> networkAddressList, Action<IPAddress, SystemInfo> onDeviceFound)
         {
-            return Discover(networkAddressList.Select(network => network.BroadcastAddress), onDeviceFound, timeout);
+            return DiscoverAsync(networkAddressList.Select(network => network.BroadcastAddress), onDeviceFound, DiscoveryTimeout);
         }
 
-        private static async Task Discover(IEnumerable<IPAddress> broadcastAddressList, Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
+        public static Task DiscoverAsync(IEnumerable<IPNetwork> networkAddressList, Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
         {
-            using (UdpClient client = new UdpClient())
+            return DiscoverAsync(networkAddressList.Select(network => network.BroadcastAddress), onDeviceFound, timeout);
+        }
+
+        private static async Task DiscoverAsync(IEnumerable<IPAddress> broadcastAddressList, Action<IPAddress, SystemInfo> onDeviceFound, TimeSpan timeout)
+        {
+            using (UdpClient client = new UdpClient() { EnableBroadcast = true })
             {
                 // Send the discovery message
-                client.EnableBroadcast = true;
                 string requestContent = "{\"system\":{\"get_sysinfo\":{}}}";
                 byte[] requestMessage = new byte[requestContent.Length];
                 Client.EncodeMessage(requestContent, null, requestMessage);
@@ -431,7 +473,7 @@ namespace TPLink.SmartHome
                 while (true)
                 {
                     Task<UdpReceiveResult> udpReceiveResultTask = client.ReceiveAsync();
-                    await Task.WhenAny(timeoutTask, udpReceiveResultTask, Task.Delay(2000));
+                    await Task.WhenAny(timeoutTask, udpReceiveResultTask, Task.Delay(2000)).ConfigureAwait(false);
 
                     if (timeoutTask.IsCompleted)
                     {
@@ -482,7 +524,7 @@ namespace TPLink.SmartHome
             int bufferLength = 0;
             while (bufferLength < count)
             {
-                int readLength = await stream.ReadAsync(buffer, offset + bufferLength, count - bufferLength);
+                int readLength = await stream.ReadAsync(buffer, offset + bufferLength, count - bufferLength).ConfigureAwait(false);
                 if (readLength == 0)
                 {
                     break;
